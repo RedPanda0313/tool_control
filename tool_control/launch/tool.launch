@@ -1,0 +1,7 @@
+<launch>
+    <group ns="tool">
+        <rosparam file="$(find tool_control)/config/tool.yaml" command="load"/>
+        <node name="controller_manager" pkg="controller_manager" type="spawner" respawn="false" output="screen" args="joint_state_controller joint7_position_controller linear_position_controller"/>
+        <node name="tool_control" pkg="tool_control" type="tool_control" output="screen" respawn="false" />
+  </group>
+</launch>
