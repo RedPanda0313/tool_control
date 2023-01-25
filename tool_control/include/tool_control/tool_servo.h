@@ -54,7 +54,13 @@ class tool_servo{
     public:
         tool_servo(){};
         int initialize();
+        int open_Ud();
+        int open_Ao();
+        int open_Di();
         int finish();
+        int close_Ud();
+        int close_Ao();
+        int close_Di();
         tool_data get_enc();
         int set_target(tool_data target);
         void write();
@@ -103,6 +109,7 @@ class tool_servo{
     ErrorCode ret_ENC0 = Automation::BDaq::Success;
     ErrorCode ret_ENC1 = Automation::BDaq::Success;
     ErrorCode ret_DI = Automation::BDaq::Success;
+    ErrorCode ret_ = Automation::BDaq::Success;
     InstantAoCtrl * instantAoCtrl; 
     InstantDiCtrl * instantDiCtrl; 
     UdCounterCtrl* udCounterCtrl0; 

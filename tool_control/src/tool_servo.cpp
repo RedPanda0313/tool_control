@@ -111,116 +111,270 @@ void tool_servo::voltage_limit(){
     }
 }
 
-
-
-int tool_servo::initialize(){
-    //init pci boards
-    //ao
-    #define     ONE_WAVE_POINT_COUNT  3 //define how many data to makeup a waveform period.
-    #define     deviceDescription_AO  L"PCI-1727U,BID#0"
-    const wchar_t* profilePath_AO = L"pci/DemoDevice.xml";
-
-    #define  deviceDescription_DI  L"PCI-1727U,BID#0"
-    
-const wchar_t* profilePath_DI = L"pci/DemoDevice.xml";
+int tool_servo::open_Ud() {
     //encoder
     #define     deviceDescription_ENC L"PCI-1784,BID#0"
     const wchar_t* profilePath_ENC = L"pci/PCI-1784.xml";
-    
-    instantAoCtrl = InstantAoCtrl::Create();
-    instantDiCtrl = InstantDiCtrl::Create();
-   //InstantAoCtrl * instantAoCtrl = AdxInstantAoCtrlCreate();
-   //InstantDiCtrl * instantDiCtrl = AdxInstantDiCtrlCreate();
     udCounterCtrl0 = UdCounterCtrl::Create();
     udCounterCtrl1 = UdCounterCtrl::Create();
+    ret= udCounterCtrl0->setSelectedDevice(devInfo_ENC);
+    if (BioFailed(ret)) {
+        ROS_ERROR_STREAM("Error Access PCI-1784 set"); return -1;
+    }
+    ret = udCounterCtrl1->setSelectedDevice(devInfo_ENC);
+    if (BioFailed(ret)) {
+        ROS_ERROR_STREAM("Error Access PCI-1784 set"); return -1;
+    }
+    ret = udCounterCtrl0->LoadProfile(profilePath_ENC);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1784 load"); return -1;
+    }
+    ret = udCounterCtrl1->LoadProfile(profilePath_ENC);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1784 load"); return -1;
+    }
 
-    
+    ret = udCounterCtrl0->setChannelStart(RotationChannel_ENC);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+    }
+    ret = udCounterCtrl0->setChannelCount(channelCount_ENC);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+    }
 
-      
-      DeviceInformation devInfo_ENC(deviceDescription_ENC);
-      ret_ENC0 = udCounterCtrl0->setSelectedDevice(devInfo_ENC);
-      if(BioFailed(ret_ENC0))
-      {ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
-      ret_ENC1 = udCounterCtrl1->setSelectedDevice(devInfo_ENC);
-      if(BioFailed(ret_ENC1))
-      {ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
-      
+    ret = udCounterCtrl1->setChannelStart(LinearChannel_ENC);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+    }
+    ret = udCounterCtrl1->setChannelCount(channelCount_ENC);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+    }
+    Array<UdChannel>* udChannel0 = udCounterCtrl0->getChannels();
+    Array<UdChannel>* udChannel1 = udCounterCtrl1->getChannels();
+
+    for (int i = channelStart_ENC; i < channelStart_ENC + channelCount_ENC; i++)
+    {
+        ret = udChannel0->getItem(i).setCountingType(AbPhaseX1);
+        ret = udChannel1->getItem(i).setCountingType(AbPhaseX1);
+
+        if (BioFailed(ret)) { ROS_ERROR_STREAM("Error Access PCI-1784"); return -1; }
+        if (BioFailed(ret)) { ROS_ERROR_STREAM("Error Access PCI-1784"); return -1; }
+    }
+
+    ret = udCounterCtrl0->setEnabled(true);
+    ret = udCounterCtrl1->setEnabled(true);
+    return 1;
+}
+int tool_servo::open_Ao() {
+    //voltage output
+#define     deviceDescription_AO  L"PCI-1727U,BID#0"
+    const wchar_t* profilePath_AO = L"pci/DemoDevice.xml";
     DeviceInformation devInfo_AO(deviceDescription_AO);
-      ret_AO = instantAoCtrl->setSelectedDevice(devInfo_AO);
-      if(BioFailed(ret_AO)) 
-      {ROS_ERROR_STREAM("Error Access PCI-1727 (AO)");return -1;}
+    instantAoCtrl_ = AdxInstantAoCtrlCreate();
+    ret = instantAoCtrl->setSelectedDevice(devInfo);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1727 (AO) set"); return -1;
+    }ret = instantAoCtrl->LoadProfile(profilePath_AO);//Loads a profile to initialize the device.
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1727 (AO) load"); return -1;
+    }
+    return 1;
+}
+int tool_servo::open_Di() {
+    //voltage output
+#define     deviceDescription_DI  L"PCI-1727U,BID#0"
+    const wchar_t* profilePath_DI = L"pci/DemoDevice.xml";
     DeviceInformation devInfo_DI(deviceDescription_DI);
-    ret_DI = instantDiCtrl->setSelectedDevice(devInfo_DI);  
-      if(BioFailed(ret_DI))
-      {
-         ROS_ERROR_STREAM("Error Access PCI-1727 (DI)");
-         return -1;
-      }
+    instantDiCtrl_ = AdxInstantDoCtrlCreate();
+    ret = instantDiCtrl->setSelectedDevice(devInfo);
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1727 (DI) set"); return -1;
+    }ret = instantDiCtrl->LoadProfile(profilePath_DI);//Loads a profile to initialize the device.
+    if (BioFailed(ret))
+    {
+        ROS_ERROR_STREAM("Error Access PCI-1727 (DI) load"); return -1;
+    }
 
-      ret_AO = instantAoCtrl->LoadProfile(profilePath_AO);//Loads a profile to initialize the device.
-       if(BioFailed(ret_AO))
-      {ROS_ERROR_STREAM("Error Access PCI-1727");return -1;}
-      ret_ENC0 = udCounterCtrl0->LoadProfile(profilePath_ENC);
-      if(BioFailed(ret_ENC0))
-      {ROS_ERROR_STREAM("Error Access PCI-1727");return -1;}
-      ret_ENC1 = udCounterCtrl1->LoadProfile(profilePath_ENC);
-      if(BioFailed(ret_ENC1))
-      {ROS_ERROR_STREAM("Error Access PCI-1727");return -1;}
-      ret_DI = instantDiCtrl->LoadProfile(profilePath_DI);//Loads a profile to initialize the device.
-       if(BioFailed(ret_DI))
-      {ROS_ERROR_STREAM("Error Access PCI-1727");return -1;}
-      
-      
-      ret_ENC0 = udCounterCtrl0->setChannelStart(RotationChannel_ENC);
-       if(BioFailed(ret_ENC0))
-      {ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
-      ret_ENC0 = udCounterCtrl0->setChannelCount(channelCount_ENC);
-       if(BioFailed(ret_ENC0))
-      {ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
+    ROS_INFO_STREAM("DI port count " << instantDiCtrl_->getPortCount());
+    return 1;
+}
+int tool_servo::initialize(){
+    if (!open_Ud()) {
+        return -1;
+    }
+    if (!open_Ao()) {
+        return -1;
+    }
+    if (!open_Di()) {
+        return -1;
+    }
+    {
+        //init pci boards
+        //ao
+#define     ONE_WAVE_POINT_COUNT  3 //define how many data to makeup a waveform period.
+#define     deviceDescription_AO  L"PCI-1727U,BID#0"
+        const wchar_t* profilePath_AO = L"pci/DemoDevice.xml";
 
-      ret_ENC1 = udCounterCtrl1->setChannelStart(LinearChannel_ENC);
-       if(BioFailed(ret_ENC1))
-      {ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
-      ret_ENC1 = udCounterCtrl1->setChannelCount(channelCount_ENC);
-       if(BioFailed(ret_ENC1))
-      {ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
-       Array<UdChannel>*udChannel0 = udCounterCtrl0->getChannels();
-        Array<UdChannel>*udChannel1 = udCounterCtrl1->getChannels();
+#define  deviceDescription_DI  L"PCI-1727U,BID#0"
 
-      for(int i = channelStart_ENC; i < channelStart_ENC + channelCount_ENC; i++)
-      {
-         //ret_ENC = udChannel->getItem(i).setCountingType(PulseDirection);
-         ret_ENC0 = udChannel0->getItem(i).setCountingType(AbPhaseX1);
-         ret_ENC1 = udChannel1->getItem(i).setCountingType(AbPhaseX1);
+        const wchar_t* profilePath_DI = L"pci/DemoDevice.xml";
+        //encoder
+#define     deviceDescription_ENC L"PCI-1784,BID#0"
+        const wchar_t* profilePath_ENC = L"pci/PCI-1784.xml";
 
-         if(BioFailed(ret_ENC0)){ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
-         if(BioFailed(ret_ENC1)){ROS_ERROR_STREAM("Error Access PCI-1784");return -1;}
-      }
+        instantAoCtrl = InstantAoCtrl::Create();
+        instantDiCtrl = InstantDiCtrl::Create();
+        //InstantAoCtrl * instantAoCtrl = AdxInstantAoCtrlCreate();
+        //InstantDiCtrl * instantDiCtrl = AdxInstantDiCtrlCreate();
 
-      ret_ENC0= udCounterCtrl0->setEnabled(true);
-      ret_ENC1= udCounterCtrl1->setEnabled(true);
 
-      bool enforced = false;
+
+
+        DeviceInformation devInfo_ENC(deviceDescription_ENC);
+        ret_ENC0 = udCounterCtrl0->setSelectedDevice(devInfo_ENC);
+        if (BioFailed(ret_ENC0))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+        }
+        ret_ENC1 = udCounterCtrl1->setSelectedDevice(devInfo_ENC);
+        if (BioFailed(ret_ENC1))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+        }
+
+        DeviceInformation devInfo_AO(deviceDescription_AO);
+        ret_AO = instantAoCtrl->setSelectedDevice(devInfo_AO);
+        if (BioFailed(ret_AO))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1727 (AO)"); return -1;
+        }
+        DeviceInformation devInfo_DI(deviceDescription_DI);
+        ret_DI = instantDiCtrl->setSelectedDevice(devInfo_DI);
+        if (BioFailed(ret_DI))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1727 (DI)");
+            return -1;
+        }
+
+        ret_AO = instantAoCtrl->LoadProfile(profilePath_AO);//Loads a profile to initialize the device.
+        if (BioFailed(ret_AO))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1727"); return -1;
+        }
+        ret_ENC0 = udCounterCtrl0->LoadProfile(profilePath_ENC);
+        if (BioFailed(ret_ENC0))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1727"); return -1;
+        }
+        ret_ENC1 = udCounterCtrl1->LoadProfile(profilePath_ENC);
+        if (BioFailed(ret_ENC1))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1727"); return -1;
+        }
+        ret_DI = instantDiCtrl->LoadProfile(profilePath_DI);//Loads a profile to initialize the device.
+        if (BioFailed(ret_DI))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1727"); return -1;
+        }
+
+
+        ret_ENC0 = udCounterCtrl0->setChannelStart(RotationChannel_ENC);
+        if (BioFailed(ret_ENC0))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+        }
+        ret_ENC0 = udCounterCtrl0->setChannelCount(channelCount_ENC);
+        if (BioFailed(ret_ENC0))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+        }
+
+        ret_ENC1 = udCounterCtrl1->setChannelStart(LinearChannel_ENC);
+        if (BioFailed(ret_ENC1))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+        }
+        ret_ENC1 = udCounterCtrl1->setChannelCount(channelCount_ENC);
+        if (BioFailed(ret_ENC1))
+        {
+            ROS_ERROR_STREAM("Error Access PCI-1784"); return -1;
+        }
+        Array<UdChannel>* udChannel0 = udCounterCtrl0->getChannels();
+        Array<UdChannel>* udChannel1 = udCounterCtrl1->getChannels();
+
+        for (int i = channelStart_ENC; i < channelStart_ENC + channelCount_ENC; i++)
+        {
+            //ret_ENC = udChannel->getItem(i).setCountingType(PulseDirection);
+            ret_ENC0 = udChannel0->getItem(i).setCountingType(AbPhaseX1);
+            ret_ENC1 = udChannel1->getItem(i).setCountingType(AbPhaseX1);
+
+            if (BioFailed(ret_ENC0)) { ROS_ERROR_STREAM("Error Access PCI-1784"); return -1; }
+            if (BioFailed(ret_ENC1)) { ROS_ERROR_STREAM("Error Access PCI-1784"); return -1; }
+        }
+
+        ret_ENC0 = udCounterCtrl0->setEnabled(true);
+        ret_ENC1 = udCounterCtrl1->setEnabled(true);
+
+        /*bool enforced = false;
 
         int32 counter = 0;
         int32 roopcounter = 0;
-        int32 phase3_roopcounter = 0;
-        target_data_enc.linear_data=0.0;
-        return 1;
+        int32 phase3_roopcounter = 0;*/}
+    target_data_enc.linear_data=0.0;
+    return 1;
 
         
+}
+int tool_servo::close_Ud() {
+    ret = udCounterCtrl0->setEnabled(false);
+    ret = udCounterCtrl1->setEnabled(false);
+    udCounterCtrl0->Dispose();
+    udCounterCtrl1->Dispose(); 
+    if (BioFailed(ret))
+    {
+        wchar_t enumString[256];
+        AdxEnumToString(L"ErrorCode", (int32)ret, 256, enumString);
+        printf("Some error occurred. And the last error code is 0x%X. [%ls]\n", ret, enumString);
+        return 1;
+    }    
+    if (BioFailed(ret))
+    {
+        wchar_t enumString[256];
+        AdxEnumToString(L"ErrorCode", (int32)ret, 256, enumString);
+        printf("Some error occurred. And the last error code is 0x%X. [%ls]\n", ret, enumString);
+        return 1;
+    }
+}
+int tool_servo::close_Ao() {
+    instantAoCtrl->Dispose();
+}
+int tool_servo::close_Di() {
+    instantDiCtrl->Dispose();
 }
 int tool_servo::finish(){
     target_data_voltage.linear_data=0.0;
     target_data_voltage.rotation_data=0.0;
     write();
 
-target_data_voltage.rotation_data=0.0;
+    target_data_voltage.rotation_data=0.0;
 
     ret_AO = instantAoCtrl->Write(LinearChannel_AO,target_data_voltage.linear_data);
     ret_AO = instantAoCtrl->Write(RotationChannel_AO,target_data_voltage.rotation_data);//sing value
-   
-
+    close_Ud();
+    close_Ao();
+    close_Di();
+    /*
     ret_ENC0 = udCounterCtrl0->setEnabled(false);
     ret_ENC1 = udCounterCtrl1->setEnabled(false);
     
@@ -254,7 +408,7 @@ target_data_voltage.rotation_data=0.0;
       AdxEnumToString(L"ErrorCode", (int32)ret_DI, 256, enumString);
       printf("Some error occurred. And the last error code is 0x%X. [%ls]\n", ret_DI, enumString);
       return 1;
-   }
+   }*/
     return 0;
 
 }
